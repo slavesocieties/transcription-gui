@@ -93,7 +93,7 @@ def layout_analyze(data):
     coordinates = []
     binarization_quantile = 0.1
     bin_thresh = np.quantile(data, binarization_quantile)
-    print("Dynamic binarization threshold = "+str(bin_thresh))
+    #print("Dynamic binarization threshold = "+str(bin_thresh))
 
     for y in range(len(data)):
 
@@ -111,10 +111,10 @@ def layout_analyze(data):
     # tmp_img.show()
 
     h, w = len(data), len(data[0])
-    print("height", h, "width", w)
+    #print("height", h, "width", w)
 
     count = GCD(h, w)
-    print("gcd",count)
+    #print("gcd",count)
     wy = len(data)//count
     wx = len(data[0])//count
     conv = []

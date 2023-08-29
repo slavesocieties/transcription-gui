@@ -12,12 +12,12 @@ class TrGUI:
         self.vol_id = None
         self.img_id = None
         self.root = root
-        self.root.geometry('720x240')
+        self.root.geometry('720x270')
         self.root.title('SSDA transcription tool')
         self.user_input = tk.StringVar()  # Instance attribute to store input
 
         self.title = ctk.CTkLabel(self.root, text="Enter an SSDA volume ID to transcribe from:")
-        self.title.pack(padx=10, pady=(30, 10))
+        self.title.pack(padx=10, pady=(25, 10))
         
         self.link = ctk.CTkEntry(self.root, width=350, height=40, textvariable=self.user_input)
         self.link.pack()
@@ -29,6 +29,10 @@ class TrGUI:
         self.download = ctk.CTkButton(self.root, text="Grab next image", command=self.startDownload)
         self.download.pack(padx=10, pady=10)
 
+        self.skip = ctk.CTkButton(self.root, text="Skip image segment", command=self.skipSegment)
+        self.skip.pack(padx=10, pady=10)
+        self.skip.pack_forget()
+
         self.image_display = ctk.CTkToplevel()
         self.image_display.geometry('720x240')
         self.image_display.title('Transcribe this image')
@@ -37,6 +41,14 @@ class TrGUI:
         self.image_display.withdraw()
 
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
+
+    def skipSegment(self):
+        self.curr_segment += 1
+        
+        if os.path.exists(self.build_segment_path()):
+            self.openImage(self.build_segment_path(), self.image_display.line)
+        else:            
+            self.checkForMore()
 
     def on_close(self):
         trash = ['temp.jpg', 'log.csv']
@@ -48,6 +60,10 @@ class TrGUI:
         
         if hasattr(self, 'image_display') and self.image_display:
             self.image_display.destroy()
+
+        for after_id in root.tk.eval('after info').split():
+            root.after_cancel(after_id)
+        
         self.root.destroy()
 
     def parse_training_log(self):
@@ -123,11 +139,17 @@ class TrGUI:
             # clumsy fix, check why always 200 later
             size = os.path.getsize('temp.jpg')
         if (size < 10000) or (response.status_code != 200):
-            return False   
+            return False
+        else:            
+            self.finishLabel.configure(text="Image " + str(self.img_id) + " downloaded!", text_color='green')
+            self.root.update()
         
         return True
 
     def beginTranscription(self):
+        self.skip.pack()
+        self.finishLabel.configure(text="Processing image", text_color='green')
+        self.root.update()
         self.update_training_log(self.vol_id, self.img_id)
         self.link.pack(before=self.finishLabel)
         self.link.delete(0, tk.END)
@@ -176,6 +198,7 @@ class TrGUI:
             self.title.configure(text="Volume completed! Enter another SSDA volume ID to transcribe from:")
             self.finishLabel.configure(text="No download started", text_color='black')
             self.download.configure(text="Grab next image", command=self.startDownload)
+            self.skip.pack_forget()
         else:
             self.beginTranscription()
 
