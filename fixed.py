@@ -50,6 +50,14 @@ class TrGUI:
         else:            
             self.checkForMore()
 
+    def keySkip(self, event):
+        self.curr_segment += 1
+        
+        if os.path.exists(self.build_segment_path()):
+            self.openImage(self.build_segment_path(), self.image_display.line)
+        else:            
+            self.checkForMore()
+
     def on_close(self):
         trash = ['temp.jpg', 'log.csv']
         for path in trash:
@@ -147,6 +155,7 @@ class TrGUI:
         return True
 
     def beginTranscription(self):
+        self.link.bind("<Control_L>", self.keySkip)
         self.skip.pack()
         self.finishLabel.configure(text="Processing image", text_color='green')
         self.root.update()
