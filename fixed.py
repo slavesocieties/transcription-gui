@@ -24,7 +24,7 @@ class TrGUI:
         self.link.bind("<Return>", self.on_enter_key)
 
         self.finishLabel = ctk.CTkLabel(self.root, text="No download started")
-        self.finishLabel.pack(padx=10, pady=10)
+        self.finishLabel.pack(padx=10, pady=(10, 0))
 
         self.download = ctk.CTkButton(self.root, text="Grab next image", command=self.startDownload)
         self.download.pack(padx=10, pady=10)
@@ -150,13 +150,14 @@ class TrGUI:
             return False
         else:            
             self.finishLabel.configure(text="Image " + str(self.img_id) + " downloaded!", text_color='green')
+            self.title.configure(text="")
             self.root.update()
         
         return True
 
     def beginTranscription(self):
         self.link.bind("<Control_L>", self.keySkip)
-        self.skip.pack()
+        self.skip.pack()        
         self.finishLabel.configure(text="Processing image", text_color='green')
         self.root.update()
         self.update_training_log(self.vol_id, self.img_id)
@@ -167,14 +168,15 @@ class TrGUI:
         if not check: 
             self.checkForMore()
                 
-        self.curr_segment = 1    
+        self.curr_segment = 1
+        
+        self.finishLabel.configure(text="Working on volume " + str(self.vol_id) + " image " + str(self.img_id))        
         
         # implement zoomable image
         
         self.image_display.deiconify()    
         self.openImage(self.build_segment_path(), self.image_display.line)    
-        self.title.configure(text="Transcribe text here:")
-        self.finishLabel.configure(text="")
+        self.title.configure(text="Transcribe text here:")        
         self.download.configure(text="Save transcription", command=self.saveTranscription)
 
     def build_segment_path(self):
