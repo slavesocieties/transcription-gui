@@ -5,6 +5,8 @@ import os
 from PIL import Image
 import shutil
 from segment import *
+import requests
+import time
 
 class TrGUI:
     def __init__(self, root):
@@ -45,16 +47,16 @@ class TrGUI:
     def skipSegment(self):
         self.curr_segment += 1
         
-        if os.path.exists(self.build_segment_path()):
-            self.openImage(self.build_segment_path(), self.image_display.line)
+        if self.curr_segment < self.segment_count:
+            self.openImage(self.build_segment_aws_path(), self.image_display.line)
         else:            
             self.checkForMore()
 
     def keySkip(self, event):
         self.curr_segment += 1
         
-        if os.path.exists(self.build_segment_path()):
-            self.openImage(self.build_segment_path(), self.image_display.line)
+        if self.curr_segment < self.segment_count:
+            self.openImage(self.build_segment_aws_path(), self.image_display.line)
         else:            
             self.checkForMore()
 
@@ -109,7 +111,7 @@ class TrGUI:
         
         for vol in self.parse_training_log():
             if str(vol['id']) == self.vol_id:
-                self.img_id = vol['last_im'] + 1
+                self.img_id = vol['last_im']+1
                 break        
             
         if self.img_id == None:
@@ -164,41 +166,63 @@ class TrGUI:
         self.link.pack(before=self.finishLabel)
         self.link.delete(0, tk.END)
         
-        check = driver(self.vol_id, self.img_id)
-        if not check: 
+
+        # connect to API here
+        api_url = "https://flask-service.jvc24472r5u3e.us-east-1.cs.amazonlightsail.com/segmentation"
+        # api_url = "http://localhost:5000/segmentation"
+        api_response = requests.post(api_url, json={"vol": self.vol_id, "img": self.img_id}).json()
+        print(api_response)
+        uuid = api_response['uuid']
+        max_retries = 10
+        while max_retries > 0:
+            time.sleep(15)
+            max_retries -= 1
+            api_response = requests.get(api_url, params={'uuid': uuid}).json()
+            print(api_response)
+            if api_response['status'] == 'completed':
+                break
+
+        # TODO: raise error when api timeouts
+        self.segment_count = api_response['count']
+        if self.segment_count == 0:
             self.checkForMore()
                 
         self.curr_segment = 1
+        
         
         self.finishLabel.configure(text="Working on volume " + str(self.vol_id) + " image " + str(self.img_id))        
         
         # implement zoomable image
         
         self.image_display.deiconify()    
-        self.openImage(self.build_segment_path(), self.image_display.line)    
+        self.openImage(self.build_segment_aws_path(), self.image_display.line)    
         self.title.configure(text="Transcribe text here:")        
         self.download.configure(text="Save transcription", command=self.saveTranscription)
 
     def build_segment_path(self):
         next_segment = self.vol_id + '-' + ('0' * (4 - len(str(self.img_id))) + str(self.img_id)) + '-' + ('0' * (2 - len(str(self.curr_segment))) + str(self.curr_segment))
         return os.path.join('segmented', next_segment + '.jpg')
+    
+    def build_segment_aws_path(self):
+        next_segment = self.vol_id + '-' + ('0' * (4 - len(str(self.img_id))) + str(self.img_id)) + '-' + ('0' * (2 - len(str(self.curr_segment))) + str(self.curr_segment)) + '.jpg'
+        return 'https://zoqdygikb2.execute-api.us-east-1.amazonaws.com/v1/ssda-htr-training/' + next_segment
 
     def saveTranscription(self):
         if len(self.user_input.get()) < 1:
             self.finishLabel.configure(text="No transcription entered.", text_color='red')
             return
         
-        with open(self.build_segment_path(), "rb") as f:
-            img_data = f.read()
+        # with open('./temp_segment', "rb") as f:
+        #     img_data = f.read()
         headers = {"Content-Type":"image/jpeg"}
-        requests.put("https://zoqdygikb2.execute-api.us-east-1.amazonaws.com/v1/ssda-htr-training/" + self.build_segment_path()[self.build_segment_path().find('\\') +1:], data=img_data, headers=headers)
+        # requests.put("https://zoqdygikb2.execute-api.us-east-1.amazonaws.com/v1/ssda-htr-training/" + self.build_segment_path()[self.build_segment_path().find('\\') +1:], data=img_data, headers=headers)
         requests.put("https://zoqdygikb2.execute-api.us-east-1.amazonaws.com/v1/ssda-htr-training/" + self.build_segment_path()[self.build_segment_path().find('\\') +1:self.build_segment_path().find('.')] + '.txt', data=self.user_input.get())
         self.link.delete(0, tk.END)
         
         self.curr_segment += 1
         
-        if os.path.exists(self.build_segment_path()):
-            self.openImage(self.build_segment_path(), self.image_display.line)
+        if self.curr_segment < self.segment_count:
+            self.openImage(self.build_segment_aws_path(), self.image_display.line)
         else:            
             self.checkForMore()
 
@@ -214,7 +238,11 @@ class TrGUI:
             self.beginTranscription()
 
     def openImage(self, image_path, display_widget):
-        img = Image.open(image_path)
+        response = requests.get(image_path)
+        if response.status_code == 200:
+            with open('temp_segment.jpg', 'wb') as f:
+                f.write(response.content)
+        img = Image.open('./temp_segment.jpg')
         im = ctk.CTkImage(img, size=(img.width, img.height))        
         display_widget.configure(image=im)
         img.close()
