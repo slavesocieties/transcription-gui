@@ -158,7 +158,7 @@ class TrGUI:
         return True
 
     def beginTranscription(self):
-        self.link.bind("<Control_L>", self.keySkip)
+        self.link.bind("<Tab>", self.keySkip)
         self.skip.pack()        
         self.finishLabel.configure(text="Processing image", text_color='green')
         self.root.update()
