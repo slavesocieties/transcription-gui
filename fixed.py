@@ -4,7 +4,6 @@ import requests
 import os
 from PIL import Image
 import shutil
-from segment import *
 import requests
 import time
 
